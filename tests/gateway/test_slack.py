@@ -2007,6 +2007,43 @@ class TestThreadReplyHandling:
         adapter_with_session_store.handle_message.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_top_level_message_with_configured_usergroup_mention_processed(
+        self, adapter_with_session_store, monkeypatch
+    ):
+        """Pinging a configured usergroup (e.g. @oncall) counts as mentioning the bot."""
+        monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+        adapter_with_session_store.config.extra["mention_usergroups"] = "S_ONCALL"
+
+        event = {
+            "text": "<!subteam^S_ONCALL|@oncall> notifs are lagging",
+            "user": "U_USER",
+            "channel": "C123",
+            "ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+        adapter_with_session_store.handle_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_top_level_message_with_other_usergroup_mention_ignored(
+        self, adapter_with_session_store, monkeypatch
+    ):
+        monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+        adapter_with_session_store.config.extra["mention_usergroups"] = "S_ONCALL"
+
+        event = {
+            "text": "<!subteam^S_OTHER|@design> thoughts?",
+            "user": "U_USER",
+            "channel": "C123",
+            "ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+        adapter_with_session_store.handle_message.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_no_session_store_ignores_thread_replies(
         self, adapter
     ):

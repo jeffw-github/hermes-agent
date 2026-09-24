@@ -355,6 +355,12 @@ slack:
   # must @mention the bot before Hermes will respond.
   strict_mention: false
 
+  # Usergroup IDs whose @-mention counts as mentioning the bot, so a
+  # ping to e.g. @oncall triggers Hermes the same as @Hermes would.
+  # Find a group's ID (starts with "S") in its Slack profile or via
+  # usergroups.list. Also settable via SLACK_MENTION_USERGROUPS.
+  mention_usergroups: ""
+
   # Custom mention patterns that trigger the bot
   # (in addition to the default @mention detection)
   mention_patterns:

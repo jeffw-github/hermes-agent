@@ -562,6 +562,63 @@ def test_mention_outside_strict_mode_still_registers_thread():
 
 
 # ---------------------------------------------------------------------------
+# Tests: _slack_mention_usergroups
+# ---------------------------------------------------------------------------
+
+def test_mention_usergroups_default_empty(monkeypatch):
+    monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+    adapter = _make_adapter()
+    assert adapter._slack_mention_usergroups() == set()
+    assert adapter._mentions_configured_usergroup("<!subteam^S123|@oncall> help") is False
+
+
+def test_mention_usergroups_list_and_csv(monkeypatch):
+    monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+    adapter = _make_adapter()
+    adapter.config.extra["mention_usergroups"] = ["S123", "S456"]
+    assert adapter._slack_mention_usergroups() == {"S123", "S456"}
+    adapter.config.extra["mention_usergroups"] = "S123, S456"
+    assert adapter._slack_mention_usergroups() == {"S123", "S456"}
+
+
+def test_mention_usergroups_env_var_fallback(monkeypatch):
+    monkeypatch.setenv("SLACK_MENTION_USERGROUPS", "S123")
+    adapter = _make_adapter()
+    assert adapter._slack_mention_usergroups() == {"S123"}
+
+
+def test_mentions_configured_usergroup_matches_both_encodings(monkeypatch):
+    monkeypatch.setenv("SLACK_MENTION_USERGROUPS", "S123")
+    adapter = _make_adapter()
+    assert adapter._mentions_configured_usergroup("<!subteam^S123|@oncall> help")
+    assert adapter._mentions_configured_usergroup("<!subteam^S123> help")
+    # Prefix of a different group ID must not match.
+    assert not adapter._mentions_configured_usergroup("<!subteam^S1234|@other> help")
+
+
+def test_config_bridges_slack_mention_usergroups(monkeypatch, tmp_path):
+    from gateway.config import load_gateway_config
+
+    hermes_home = tmp_path / ".hermes"
+    hermes_home.mkdir()
+    (hermes_home / "config.yaml").write_text(
+        "slack:\n"
+        "  mention_usergroups:\n"
+        "    - S123\n"
+        "    - S456\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+
+    load_gateway_config()
+
+    import os as _os
+    assert _os.environ["SLACK_MENTION_USERGROUPS"] == "S123,S456"
+
+
+# ---------------------------------------------------------------------------
 # Tests: _slack_allowed_channels
 # ---------------------------------------------------------------------------
 

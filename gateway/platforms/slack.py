@@ -1763,7 +1763,11 @@ class SlackAdapter(BasePlatformAdapter):
                 return
             elif allow_bots == "mentions":
                 text_check = event.get("text", "")
-                if self._bot_user_id and f"<@{self._bot_user_id}>" not in text_check:
+                if (
+                    self._bot_user_id
+                    and f"<@{self._bot_user_id}>" not in text_check
+                    and not self._mentions_configured_usergroup(text_check)
+                ):
                     return
             # "all" falls through to process the message
             # Always ignore our own messages to prevent echo loops
@@ -1917,7 +1921,10 @@ class SlackAdapter(BasePlatformAdapter):
         #   4. There's an existing session for this thread (survives restarts)
         bot_uid = self._team_bot_user_ids.get(team_id, self._bot_user_id)
         routing_text = original_text or ""
-        is_mentioned = bot_uid and f"<@{bot_uid}>" in routing_text
+        is_mentioned = bot_uid and (
+            f"<@{bot_uid}>" in routing_text
+            or self._mentions_configured_usergroup(routing_text)
+        )
         event_thread_ts = event.get("thread_ts")
         is_thread_reply = bool(event_thread_ts and event_thread_ts != ts)
 
@@ -2965,6 +2972,24 @@ class SlackAdapter(BasePlatformAdapter):
         if s:
             return {part.strip() for part in s.split(",") if part.strip()}
         return set()
+
+    def _slack_mention_usergroups(self) -> set:
+        """Return usergroup IDs whose @-mention counts as mentioning the bot."""
+        raw = self.config.extra.get("mention_usergroups")
+        if raw is None:
+            raw = os.getenv("SLACK_MENTION_USERGROUPS", "")
+        if isinstance(raw, list):
+            return {str(part).strip() for part in raw if str(part).strip()}
+        if isinstance(raw, str) and raw.strip():
+            return {part.strip() for part in raw.split(",") if part.strip()}
+        return set()
+
+    def _mentions_configured_usergroup(self, text: str) -> bool:
+        # Slack encodes usergroup mentions as <!subteam^ID> or <!subteam^ID|@handle>.
+        return any(
+            f"<!subteam^{group_id}>" in text or f"<!subteam^{group_id}|" in text
+            for group_id in self._slack_mention_usergroups()
+        )
 
     def _slack_allowed_channels(self) -> set:
         """Return the whitelist of channel IDs the bot will respond in.

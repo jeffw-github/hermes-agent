@@ -838,6 +838,11 @@ def load_gateway_config() -> GatewayConfig:
                     if isinstance(frc, list):
                         frc = ",".join(str(v) for v in frc)
                     os.environ["SLACK_FREE_RESPONSE_CHANNELS"] = str(frc)
+                mug = slack_cfg.get("mention_usergroups")
+                if mug is not None and not os.getenv("SLACK_MENTION_USERGROUPS"):
+                    if isinstance(mug, list):
+                        mug = ",".join(str(v) for v in mug)
+                    os.environ["SLACK_MENTION_USERGROUPS"] = str(mug)
                 if "reactions" in slack_cfg and not os.getenv("SLACK_REACTIONS"):
                     os.environ["SLACK_REACTIONS"] = str(slack_cfg["reactions"]).lower()
                 # allowed_channels: if set, bot ONLY responds in these channels (whitelist)
