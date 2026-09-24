@@ -361,6 +361,14 @@ slack:
   # usergroups.list. Also settable via SLACK_MENTION_USERGROUPS.
   mention_usergroups: ""
 
+  # Extra system prompt added for a turn whose message mentions the
+  # usergroup (keyed by usergroup ID). Combined with any channel_prompts
+  # entry. Like channel_prompts it is ephemeral: re-applied per message,
+  # not saved to history, so thread follow-ups without the group ping
+  # don't get it.
+  usergroup_prompts: {}
+  #   S0123ONCALL: "You were paged as on-call. Triage first."
+
   # Custom mention patterns that trigger the bot
   # (in addition to the default @mention detection)
   mention_patterns:

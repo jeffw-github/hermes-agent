@@ -2026,6 +2026,51 @@ class TestThreadReplyHandling:
         adapter_with_session_store.handle_message.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_usergroup_prompt_combined_with_channel_prompt(
+        self, adapter_with_session_store, monkeypatch
+    ):
+        monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+        extra = adapter_with_session_store.config.extra
+        extra["mention_usergroups"] = "S_ONCALL"
+        extra["channel_prompts"] = {"C123": "Channel prompt."}
+        extra["usergroup_prompts"] = {"S_ONCALL": "You were paged as on-call."}
+
+        event = {
+            "text": "<!subteam^S_ONCALL|@oncall> notifs are lagging",
+            "user": "U_USER",
+            "channel": "C123",
+            "ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+
+        msg_event = adapter_with_session_store.handle_message.call_args[0][0]
+        assert msg_event.channel_prompt == "Channel prompt.\n\nYou were paged as on-call."
+
+    @pytest.mark.asyncio
+    async def test_usergroup_prompt_not_applied_on_direct_mention(
+        self, adapter_with_session_store, monkeypatch
+    ):
+        monkeypatch.delenv("SLACK_MENTION_USERGROUPS", raising=False)
+        adapter_with_session_store.config.extra["usergroup_prompts"] = {
+            "S_ONCALL": "You were paged as on-call."
+        }
+
+        event = {
+            "text": "<@U_BOT> what's up",
+            "user": "U_USER",
+            "channel": "C123",
+            "ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+
+        msg_event = adapter_with_session_store.handle_message.call_args[0][0]
+        assert msg_event.channel_prompt is None
+
+    @pytest.mark.asyncio
     async def test_top_level_message_with_other_usergroup_mention_ignored(
         self, adapter_with_session_store, monkeypatch
     ):

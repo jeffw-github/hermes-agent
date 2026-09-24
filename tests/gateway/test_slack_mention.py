@@ -618,6 +618,35 @@ def test_config_bridges_slack_mention_usergroups(monkeypatch, tmp_path):
     assert _os.environ["SLACK_MENTION_USERGROUPS"] == "S123,S456"
 
 
+def test_resolve_usergroup_prompt_joins_all_mentioned_groups():
+    adapter = _make_adapter()
+    adapter.config.extra["usergroup_prompts"] = {"S1": "one", "S2": "two", "S3": "three"}
+    text = "<!subteam^S1|@a> and <!subteam^S2> please"
+    assert adapter._resolve_usergroup_prompt(text) == "one\n\ntwo"
+    assert adapter._resolve_usergroup_prompt("no groups here") is None
+
+
+def test_config_bridges_slack_usergroup_prompts(monkeypatch, tmp_path):
+    from gateway.config import Platform as _Platform, load_gateway_config
+
+    hermes_home = tmp_path / ".hermes"
+    hermes_home.mkdir()
+    (hermes_home / "config.yaml").write_text(
+        "slack:\n"
+        "  usergroup_prompts:\n"
+        "    S123: \"You were paged as on-call.\"\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+
+    config = load_gateway_config()
+
+    assert config.platforms[_Platform.SLACK].extra["usergroup_prompts"] == {
+        "S123": "You were paged as on-call."
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tests: _slack_allowed_channels
 # ---------------------------------------------------------------------------

@@ -2160,6 +2160,9 @@ class SlackAdapter(BasePlatformAdapter):
         _channel_prompt = resolve_channel_prompt(
             self.config.extra, channel_id, None,
         )
+        _usergroup_prompt = self._resolve_usergroup_prompt(original_text or "")
+        if _usergroup_prompt:
+            _channel_prompt = "\n\n".join(p for p in (_channel_prompt, _usergroup_prompt) if p)
         _auto_skill = resolve_channel_skills(
             self.config.extra, channel_id, None,
         )
@@ -2984,12 +2987,28 @@ class SlackAdapter(BasePlatformAdapter):
             return {part.strip() for part in raw.split(",") if part.strip()}
         return set()
 
-    def _mentions_configured_usergroup(self, text: str) -> bool:
+    @staticmethod
+    def _text_mentions_usergroup(text: str, group_id: str) -> bool:
         # Slack encodes usergroup mentions as <!subteam^ID> or <!subteam^ID|@handle>.
+        return f"<!subteam^{group_id}>" in text or f"<!subteam^{group_id}|" in text
+
+    def _mentions_configured_usergroup(self, text: str) -> bool:
         return any(
-            f"<!subteam^{group_id}>" in text or f"<!subteam^{group_id}|" in text
+            self._text_mentions_usergroup(text, group_id)
             for group_id in self._slack_mention_usergroups()
         )
+
+    def _resolve_usergroup_prompt(self, text: str) -> str | None:
+        """Return the joined ``usergroup_prompts`` for every group mentioned in *text*."""
+        prompts = self.config.extra.get("usergroup_prompts") or {}
+        if not isinstance(prompts, dict):
+            return None
+        matched = []
+        for group_id, prompt in prompts.items():
+            prompt = str(prompt or "").strip()
+            if prompt and self._text_mentions_usergroup(text, str(group_id)):
+                matched.append(prompt)
+        return "\n\n".join(matched) or None
 
     def _slack_allowed_channels(self) -> set:
         """Return the whitelist of channel IDs the bot will respond in.
