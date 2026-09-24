@@ -1222,6 +1222,7 @@ DEFAULT_CONFIG = {
         "allowed_channels": "",        # If set, bot ONLY responds in these channel IDs (whitelist)
         "mention_usergroups": "",      # Comma-separated usergroup IDs whose @-mention counts as mentioning the bot
         "usergroup_prompts": {},       # Usergroup ID -> ephemeral system prompt added when that group is mentioned
+        "bot_triggers": {},            # Channel ID -> bot user/bot IDs whose top-level posts count as mentioning the bot
         "channel_prompts": {},         # Per-channel ephemeral system prompts
     },
 

@@ -2071,6 +2071,71 @@ class TestThreadReplyHandling:
         assert msg_event.channel_prompt is None
 
     @pytest.mark.asyncio
+    async def test_bot_trigger_top_level_post_processed(
+        self, adapter_with_session_store, monkeypatch
+    ):
+        """A configured bot's top-level post (e.g. a PagerDuty page) triggers the bot
+        even with the default allow_bots=none."""
+        monkeypatch.delenv("SLACK_ALLOW_BOTS", raising=False)
+        adapter_with_session_store.config.extra["bot_triggers"] = {"C123": ["U_PD"]}
+
+        event = {
+            "text": "",
+            "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "[FIRING:1] DB: Replica lag"}}],
+            "user": "U_PD",
+            "bot_id": "B_PD",
+            "channel": "C123",
+            "ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+        adapter_with_session_store.handle_message.assert_called_once()
+        msg_event = adapter_with_session_store.handle_message.call_args[0][0]
+        assert "Replica lag" in msg_event.text
+
+    @pytest.mark.asyncio
+    async def test_bot_trigger_thread_reply_ignored(
+        self, adapter_with_session_store, mock_session_store, monkeypatch
+    ):
+        """Status-update replies from the trigger bot must not re-trigger, even with a session."""
+        monkeypatch.delenv("SLACK_ALLOW_BOTS", raising=False)
+        adapter_with_session_store.config.extra["bot_triggers"] = {"C123": ["U_PD"]}
+        mock_session_store._entries = {"agent:main:slack:group:C123:456.789:U_PD": MagicMock()}
+
+        event = {
+            "text": "Status changed to Acknowledged",
+            "user": "U_PD",
+            "bot_id": "B_PD",
+            "channel": "C123",
+            "ts": "456.999",
+            "thread_ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+        adapter_with_session_store.handle_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bot_trigger_other_channel_ignored(
+        self, adapter_with_session_store, monkeypatch
+    ):
+        monkeypatch.delenv("SLACK_ALLOW_BOTS", raising=False)
+        adapter_with_session_store.config.extra["bot_triggers"] = {"C_SEV": ["B_PD"]}
+
+        event = {
+            "text": "page",
+            "user": "U_PD",
+            "bot_id": "B_PD",
+            "channel": "C123",
+            "ts": "456.789",
+            "channel_type": "channel",
+            "team": "T_TEAM",
+        }
+        await adapter_with_session_store._handle_slack_message(event)
+        adapter_with_session_store.handle_message.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_top_level_message_with_other_usergroup_mention_ignored(
         self, adapter_with_session_store, monkeypatch
     ):

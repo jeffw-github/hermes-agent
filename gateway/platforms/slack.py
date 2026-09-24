@@ -1754,7 +1754,8 @@ class SlackAdapter(BasePlatformAdapter):
         #   "none"     — ignore all bot messages (default, backward-compatible)
         #   "mentions" — accept bot messages only when they @mention us
         #   "all"      — accept all bot messages (except our own)
-        if event.get("bot_id") or event.get("subtype") == "bot_message":
+        is_bot_trigger = self._is_bot_trigger(event)
+        if not is_bot_trigger and (event.get("bot_id") or event.get("subtype") == "bot_message"):
             allow_bots = self.config.extra.get("allow_bots", "")
             if not allow_bots:
                 allow_bots = os.getenv("SLACK_ALLOW_BOTS", "none")
@@ -1924,6 +1925,7 @@ class SlackAdapter(BasePlatformAdapter):
         is_mentioned = bot_uid and (
             f"<@{bot_uid}>" in routing_text
             or self._mentions_configured_usergroup(routing_text)
+            or is_bot_trigger
         )
         event_thread_ts = event.get("thread_ts")
         is_thread_reply = bool(event_thread_ts and event_thread_ts != ts)
@@ -2996,6 +2998,26 @@ class SlackAdapter(BasePlatformAdapter):
         return any(
             self._text_mentions_usergroup(text, group_id)
             for group_id in self._slack_mention_usergroups()
+        )
+
+    def _is_bot_trigger(self, event: dict) -> bool:
+        """True for a top-level post by a bot listed in ``bot_triggers`` for this channel.
+
+        Thread replies are excluded so follow-ups like PagerDuty status
+        updates don't re-trigger the bot.
+        """
+        triggers = self.config.extra.get("bot_triggers") or {}
+        if not isinstance(triggers, dict):
+            return False
+        thread_ts = event.get("thread_ts")
+        if thread_ts and thread_ts != event.get("ts"):
+            return False
+        allowed = triggers.get(event.get("channel", "")) or []
+        if isinstance(allowed, str):
+            allowed = [part.strip() for part in allowed.split(",")]
+        allowed = {str(a).strip() for a in allowed if str(a).strip()}
+        return bool(
+            {event.get("user"), event.get("bot_id")} & allowed
         )
 
     def _resolve_usergroup_prompt(self, text: str) -> str | None:

@@ -801,6 +801,10 @@ def load_gateway_config() -> GatewayConfig:
                     bridged["group_user_allowed_commands"] = platform_cfg["group_user_allowed_commands"]
                 if plat in {Platform.DISCORD, Platform.SLACK} and "channel_skill_bindings" in platform_cfg:
                     bridged["channel_skill_bindings"] = platform_cfg["channel_skill_bindings"]
+                if plat == Platform.SLACK and isinstance(platform_cfg.get("bot_triggers"), dict):
+                    bridged["bot_triggers"] = {
+                        str(k): v for k, v in platform_cfg["bot_triggers"].items()
+                    }
                 if plat == Platform.SLACK and isinstance(platform_cfg.get("usergroup_prompts"), dict):
                     bridged["usergroup_prompts"] = {
                         str(k): v for k, v in platform_cfg["usergroup_prompts"].items()

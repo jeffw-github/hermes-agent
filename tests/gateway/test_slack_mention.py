@@ -647,6 +647,25 @@ def test_config_bridges_slack_usergroup_prompts(monkeypatch, tmp_path):
     }
 
 
+def test_config_bridges_slack_bot_triggers(monkeypatch, tmp_path):
+    from gateway.config import Platform as _Platform, load_gateway_config
+
+    hermes_home = tmp_path / ".hermes"
+    hermes_home.mkdir()
+    (hermes_home / "config.yaml").write_text(
+        "slack:\n"
+        "  bot_triggers:\n"
+        f"    {CHANNEL_ID}: [U_PD]\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+
+    config = load_gateway_config()
+
+    assert config.platforms[_Platform.SLACK].extra["bot_triggers"] == {CHANNEL_ID: ["U_PD"]}
+
+
 # ---------------------------------------------------------------------------
 # Tests: _slack_allowed_channels
 # ---------------------------------------------------------------------------

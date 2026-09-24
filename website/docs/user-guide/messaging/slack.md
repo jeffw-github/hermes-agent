@@ -369,6 +369,13 @@ slack:
   usergroup_prompts: {}
   #   S0123ONCALL: "You were paged as on-call. Triage first."
 
+  # Per channel, bots whose top-level posts count as mentioning Hermes
+  # (e.g. PagerDuty pages). Accepts the bot's user ID (U...) or bot ID
+  # (B...). Bypasses allow_bots for those posts only; thread replies from
+  # the same bot (status updates) still follow allow_bots.
+  bot_triggers: {}
+  #   C0123SEV: [U0123PAGERDUTY]
+
   # Custom mention patterns that trigger the bot
   # (in addition to the default @mention detection)
   mention_patterns:
